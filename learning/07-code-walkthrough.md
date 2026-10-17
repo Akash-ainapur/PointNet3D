@@ -32,6 +32,7 @@ config ─▶ download ─▶ explore ─▶ pc_funcs ─▶ preprocess ─▶ s
 | 8 | `train_funcs → evaluate` | loader → dict of metrics | `np.add.at(cm, (labels.cpu().numpy(), logits.argmax(dim=1).cpu().numpy()), 1)`: count (true, predicted) pairs | 06 |
 | 8 | `train_funcs → fit` | model + loaders → history, best val | `is_best = val["acc"] > best_val`, then `torch.save({"model_state": model.state_dict(), ...` | 04, 06 |
 | 9 | `eval` | best checkpoint → test metrics | `best_model.load_state_dict(ckpt["model_state"])` | 06 |
+| 9 | `save_run` (uses `train_funcs → build_run_summary`) | everything above → `run_summary.json` + zip | `summary = build_run_summary(config, environment, data_sizes, history, test, CLASS_NAMES, TRAIN_SECONDS)` | 06 |
 
 ## 3. Run the real model's shape trace (predict each line first)
 
@@ -81,7 +82,7 @@ Note the T-Nets don't change the shape: they transform the values, not the size.
 |---|---|---|
 | smoke test (notebook §7) | shapes, normalized data, loss ≈ ln(10), gradients, can overfit, permutation invariance, identity T-Nets | automatically, before training |
 | `dev/test_units.py` | 12 tests of parser, sampling, normalization, augmentation, split, metrics, regularizer, checkpoint | `python dev/test_units.py` |
-| `dev/run_local_test.py` | every non-Colab cell end to end on a small real sample | see README (needs a sample; Step 3 adds a fetch script) |
+| `dev/run_local_test.py` | every non-Colab cell end to end on a small real sample | `python dev/fetch_sample.py`, then `python dev/run_local_test.py --sample-dir dev/sample --workdir <new dir>` |
 | `dev/check_learning_notes.py` | these notes reference real code and their snippet answers are right | `python dev/check_learning_notes.py` |
 
 ## Self-check

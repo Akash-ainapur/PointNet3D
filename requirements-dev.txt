@@ -1,0 +1,10 @@
+# Only for running the LOCAL tests (dev/*.py). The Colab notebook installs what it needs itself.
+# Versions in comments are the ones the local tests were last run with (Windows, CPU, Python 3.12).
+torch>=2.0        # tested 2.13.0 (CPU build)
+numpy             # tested 2.3.3
+matplotlib        # tested 3.11.2
+nbformat          # tested 5.10.4
+tqdm              # tested 4.67.1 (optional: progress bars)
+# Optional: exercises the Open3D visualization path in dev/run_local_test.py (otherwise the matplotlib fallback runs)
+open3d            # tested 0.20.0
+plotly            # tested 7.1.0

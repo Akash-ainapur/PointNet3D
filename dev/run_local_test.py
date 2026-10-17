@@ -10,7 +10,8 @@ What this does:
 What this does NOT prove: Colab behaviour, GPU behaviour, the real 473 MB download, or accuracy on the full dataset.
 
 Usage (from the project root):
-  python dev/run_local_test.py --sample-dir <dir containing ModelNet10/> --workdir <empty short dir> [--tnets] [--runs 2]
+  python dev/fetch_sample.py                     # once: ~70 real meshes into dev/sample/ (git-ignored)
+  python dev/run_local_test.py --sample-dir dev/sample --workdir <new empty dir> [--tnets] [--no-open3d] [--runs 2]
 """
 import argparse, functools, http.server, os, re, shutil, sys, threading, time, traceback, zipfile
 from pathlib import Path
@@ -112,6 +113,16 @@ def main():
         print(f"\nRUN {run} OK in {time.time() - t_all:.0f}s | open3d used: {ns.get('HAVE_O3D')} | "
               f"plotly figures shown: {counter.get('plotly_figs')} | matplotlib figures saved: {counter['n']} in {fig_dir}")
         print(f"smoke test passed flag: {ns['SMOKE_TEST_PASSED']} | checkpoint exists: {ns['CKPT_PATH'].exists()}")
+        import json
+        run_dir = ns["RUN_DIR"]
+        produced = sorted(p.name for p in run_dir.iterdir())
+        missing = [f for f in ("best_model.pt", "run_summary.json", "curves.png", "confusion.png") if f not in produced]
+        summary = json.loads((run_dir / "run_summary.json").read_text()) if "run_summary.json" in produced else {}
+        keys_ok = all(k in summary for k in ("config", "environment", "data", "training", "test"))
+        zip_ok = Path(str(run_dir) + ".zip").exists()
+        print(f"run folder: {run_dir.name} | files: {produced} | summary keys ok: {keys_ok} | zip: {zip_ok}")
+        if missing or not keys_ok or not zip_ok:
+            print(f"FAILED: run artifacts incomplete (missing={missing}, keys_ok={keys_ok}, zip={zip_ok})"); sys.exit(1)
     httpd.shutdown()
 
 

@@ -31,7 +31,7 @@ Saved whenever validation accuracy improves: `model_state` (all weights), `epoch
 At the end, cell `eval` rebuilds `PointNet(**ckpt["model_kwargs"])`, loads the weights, and scores the **test** set once.
 Why save `model_kwargs`? A checkpoint is useless if you don't know which architecture (T-Nets on/off) it belongs to.
 *Verified:* unit test `checkpoint_roundtrip_with_weights_only_load` (save → load with PyTorch's strict loader → identical outputs).
-**Gap (fixed in Step 3 of the plan):** the curves, test metrics, config, runtime and versions are only *printed*, not saved. The plan adds a `run_summary.json` per run.
+**Run record (cell `save_run`):** every run gets its own folder `runs/<mode>_<variant>_n<points>_seed<seed>_<time>/` with `best_model.pt`, `curves.png`, `confusion.png` and **`run_summary.json`** (config, seed, versions, GPU, per-epoch history + timing, best epoch, test metrics, per-class accuracy, confusion matrix), built by `train_funcs → build_run_summary`. Unit test `run_summary_is_valid_json_with_measured_fields` checks it. Copy the small zip into the repo's `results/` folder.
 
 ## 4. The evaluation discipline (memorize this)
 
@@ -40,7 +40,7 @@ Why save `model_kwargs`? A checkpoint is useless if you don't know which archite
 3. Change **one thing at a time**; keep seed, epochs and data the same.
 4. One run is one sample. Differences of about a percent between two runs can be noise. Repeat with 2–3 seeds before claiming "X is better".
 
-**Known caveat until Step 3 lands:** the point-cloud cache (`modelnet10_{N}pts_{quick|full}.npz`) does not include `SEED` in its name, so changing `SEED` alone currently changes the model init, shuffling and validation split, but **not** the sampled points. Step 3 adds the seed to the cache name.
+**Seeds and the cache:** the point-cloud cache name contains the point count, mode **and seed** (`config → CACHE_PATH`), so a new `SEED` re-samples the points too, not just the model init, shuffling and validation split. `DETERMINISTIC = True` asks cuDNN for deterministic kernels; GPU results can still differ slightly between runs, so judge differences across seeds.
 
 ## 5. Experiment protocol for this project
 

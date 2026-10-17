@@ -202,6 +202,28 @@ def checkpoint_roundtrip_with_weights_only_load():
 
 
 @test
+def run_summary_is_valid_json_with_measured_fields():
+    import json
+    hist = {"train_loss": [2.0, 1.5, 1.2], "train_acc": [0.3, 0.5, 0.6], "val_loss": [2.1, 1.6, 1.7],
+            "val_acc": [0.4, np.float64(0.7), 0.7], "lr": [1e-3, 5e-4, 1e-4], "epoch_seconds": [3.0, 2.0, 2.5]}
+    cm = np.array([[3, 1], [0, 2]], dtype=np.int64)
+    test = {"acc": np.float64(5 / 6), "mean_class_acc": np.float64(0.875), "loss": 0.4,
+            "per_class_acc": np.array([0.75, 1.0]), "support": np.array([4, 2]), "confusion": cm}
+    s = g["build_run_summary"]({"mode": "full", "seed": 1, "path": Path("x/y")}, {"torch": "t"}, {"train": 10},
+                               hist, test, ["a", "b"], np.float32(7.5))
+    text = json.dumps(s)                                   # must not raise on numpy / Path values
+    back = json.loads(text)
+    assert back["training"]["best_epoch"] == 2, "first epoch with the best val acc (ties keep the earliest, like fit)"
+    assert abs(back["training"]["best_val_acc"] - 0.7) < 1e-12
+    assert abs(back["training"]["seconds_per_epoch_mean"] - 2.5) < 1e-12 and back["training"]["train_seconds_total"] == 7.5
+    assert back["test"]["per_class_acc"] == {"a": 0.75, "b": 1.0} and back["test"]["support"] == {"a": 4, "b": 2}
+    assert back["test"]["confusion_matrix"] == [[3, 1], [0, 2]] and back["config"]["path"] == str(Path("x/y"))
+    assert back["note"] == "full run"
+    quick = g["build_run_summary"]({"mode": "quick"}, {}, {}, hist, test, ["a", "b"], 1.0)
+    assert "NOT meaningful" in quick["note"], "quick-mode summaries must say their accuracy is not meaningful"
+
+
+@test
 def stratified_subset_picker_is_deterministic_and_capped():
     items = [(Path(f"x/{c}_{i}.off"), c) for c in ("a", "b") for i in range(10)]
     s1 = g["pick_subset"](items, 4, 7); s2 = g["pick_subset"](items, 4, 7)

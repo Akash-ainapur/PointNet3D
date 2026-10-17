@@ -15,3 +15,6 @@ venv/
 # OS junk
 .DS_Store
 Thumbs.db
+
+# Local test sample of ModelNet10 meshes (academic-use data: do not commit or redistribute)
+dev/sample/

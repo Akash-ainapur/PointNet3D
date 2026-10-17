@@ -54,6 +54,7 @@ QUICK_MODE = True            # True  = small first run (a subset of the data, fe
 NUM_POINTS   = 1024          # points per object (the PointNet paper also uses 1024 for ModelNet40)
 VAL_FRACTION = 0.10          # share of the official TRAIN set held back for validation
 SEED         = 42
+DETERMINISTIC = True         # ask cuDNN for deterministic kernels: reduces (does not eliminate) run-to-run GPU differences
 
 USE_INPUT_TNET   = False     # T-Net #1: 3x3 alignment of the raw xyz points      (baseline: off)
 USE_FEATURE_TNET = False     # T-Net #2: 64x64 alignment of the per-point features (baseline: off)
@@ -84,17 +85,19 @@ if USE_GOOGLE_DRIVE:
     drive.mount("/content/drive")
     WORK_DIR = Path("/content/drive/MyDrive/pointnet_modelnet10")
 else:
-    WORK_DIR = LOCAL_DIR / "outputs"          # preprocessed point clouds + best model checkpoint
+    WORK_DIR = LOCAL_DIR / "outputs"          # preprocessed point-cloud caches + runs/<run name>/ (checkpoint, summary, figures)
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 WORK_DIR.mkdir(parents=True, exist_ok=True)
 
 TAG = "quick" if QUICK_MODE else "full"
-CACHE_PATH = WORK_DIR / f"modelnet10_{NUM_POINTS}pts_{TAG}.npz"
-CKPT_PATH = WORK_DIR / f"best_pointnet_{TAG}.pt"
+VARIANT = {(False, False): "baseline", (True, False): "input-tnet", (False, True): "feature-tnet", (True, True): "both-tnets"}[(USE_INPUT_TNET, USE_FEATURE_TNET)]
+CACHE_PATH = WORK_DIR / f"modelnet10_{NUM_POINTS}pts_{TAG}_seed{SEED}.npz"   # the sampled points depend on N, mode and seed
 
 def set_seed(seed):
     random.seed(seed); np.random.seed(seed)
     torch.manual_seed(seed); torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = DETERMINISTIC
+    torch.backends.cudnn.benchmark = not DETERMINISTIC
 set_seed(SEED)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -103,7 +106,7 @@ SMOKE_TEST_PASSED = False                      # becomes True only if the smoke 
 print(f"PyTorch {torch.__version__} | device: {device}" + (f" ({torch.cuda.get_device_name(0)})" if device.type == "cuda" else ""))
 if device.type == "cpu":
     print("WARNING: no GPU found. Use Runtime -> Change runtime type -> T4 GPU. QUICK_MODE still works on CPU; the full run will be slow.")
-print(f"mode: {TAG} | epochs: {EPOCHS} | T-Nets: input={USE_INPUT_TNET}, feature={USE_FEATURE_TNET}")
+print(f"mode: {TAG} | variant: {VARIANT} | points: {NUM_POINTS} | seed: {SEED} | epochs: {EPOCHS} | deterministic: {DETERMINISTIC}")
 print(f"data dir: {DATA_DIR}\noutputs : {WORK_DIR}")
 
 try:
@@ -672,39 +675,84 @@ def evaluate(model, loader, device, num_classes):
 def fit(model, train_loader, val_loader, epochs, lr, weight_decay, reg_weight, device, ckpt_path, meta):
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
-    hist = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
+    hist = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": [], "lr": [], "epoch_seconds": []}
     best_val = -1.0
     for epoch in range(1, epochs + 1):
         t0 = time.time(); lr_now = optimizer.param_groups[0]["lr"]
         tr_loss, tr_acc = train_one_epoch(model, train_loader, optimizer, device, reg_weight)
         val = evaluate(model, val_loader, device, meta["model_kwargs"]["num_classes"])
         scheduler.step()
-        for k, v in zip(hist, (tr_loss, tr_acc, val["loss"], val["acc"])):
+        for k, v in zip(hist, (tr_loss, tr_acc, val["loss"], val["acc"], lr_now, time.time() - t0)):
             hist[k].append(float(v))
         is_best = val["acc"] > best_val
         if is_best:
             best_val = val["acc"]
             torch.save({"model_state": model.state_dict(), "epoch": epoch, "val_acc": float(val["acc"]), **meta}, ckpt_path)
         print(f"epoch {epoch:3d}/{epochs} | lr {lr_now:.5f} | train loss {tr_loss:.4f} acc {tr_acc:.3f} | "
-              f"val loss {val['loss']:.4f} acc {val['acc']:.3f} | {time.time() - t0:5.1f}s" + ("  <- best, saved" if is_best else ""))
+              f"val loss {val['loss']:.4f} acc {val['acc']:.3f} | {hist['epoch_seconds'][-1]:5.1f}s" + ("  <- best, saved" if is_best else ""))
     return hist, best_val
+
+def jsonable(x):
+    """numpy / Path values -> plain Python, so json.dump can write them."""
+    if isinstance(x, dict):
+        return {str(k): jsonable(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [jsonable(v) for v in x]
+    if isinstance(x, np.ndarray):
+        return jsonable(x.tolist())
+    if isinstance(x, np.integer):
+        return int(x)
+    if isinstance(x, np.floating):
+        return float(x)
+    if isinstance(x, Path):
+        return str(x)
+    return x
+
+def build_run_summary(config, environment, data_sizes, history, test, class_names, train_seconds):
+    """Everything needed to report and reproduce one run, as a JSON-ready dict. Only measured values go in here."""
+    best_epoch = int(np.argmax(history["val_acc"])) + 1               # first epoch with the best val acc (same rule as fit)
+    return jsonable({
+        "mode": config["mode"],
+        "note": "QUICK_MODE run: data subset + few epochs, accuracy NOT meaningful" if config["mode"] == "quick" else "full run",
+        "config": config,
+        "environment": environment,
+        "data": data_sizes,
+        "training": {"best_epoch": best_epoch, "best_val_acc": history["val_acc"][best_epoch - 1],
+                     "train_seconds_total": train_seconds, "seconds_per_epoch_mean": float(np.mean(history["epoch_seconds"])),
+                     "history": history},
+        "test": {"acc": test["acc"], "mean_class_acc": test["mean_class_acc"], "loss": test["loss"],
+                 "per_class_acc": dict(zip(class_names, test["per_class_acc"])),
+                 "support": dict(zip(class_names, test["support"])),
+                 "confusion_matrix": test["confusion"], "confusion_axes": "rows = true class, columns = predicted class",
+                 "class_order": class_names},
+    })
 
 # %% id="train_run"
 assert SMOKE_TEST_PASSED, "Run the smoke test (section 7) first and make sure it passes."
+RUN_NAME = f"{TAG}_{VARIANT}_n{NUM_POINTS}_seed{SEED}_{time.strftime('%Y%m%d-%H%M%S')}"
+RUN_DIR = WORK_DIR / "runs" / RUN_NAME                    # one folder per run: nothing is ever overwritten
+RUN_DIR.mkdir(parents=True, exist_ok=True)
+CKPT_PATH = RUN_DIR / "best_model.pt"
+
 set_seed(SEED)
 model = PointNet(**MODEL_KWARGS).to(device)
+print(f"run: {RUN_NAME}")
 print(f"training {sum(p.numel() for p in model.parameters()):,} parameters on {len(X_train)} clouds, validating on {len(X_val)}\n")
 
+t_train = time.time()
 history, best_val_acc = fit(
     model, train_loader, val_loader, EPOCHS, LR, WEIGHT_DECAY, FEATURE_REG_WEIGHT, device, CKPT_PATH,
     meta={"model_kwargs": MODEL_KWARGS, "class_names": CLASS_NAMES, "num_points": NUM_POINTS})
-print(f"\nbest validation accuracy: {best_val_acc:.3f}  (model saved to {CKPT_PATH})")
+TRAIN_SECONDS = time.time() - t_train
+print(f"\nbest validation accuracy: {best_val_acc:.3f} | training time {TRAIN_SECONDS / 60:.1f} min | model saved to {CKPT_PATH}")
 
 epochs_axis = np.arange(1, len(history["train_loss"]) + 1)
 fig, axes = plt.subplots(1, 2, figsize=(11, 3.5))
 axes[0].plot(epochs_axis, history["train_loss"], label="train"); axes[0].plot(epochs_axis, history["val_loss"], label="validation"); axes[0].set_title("cross-entropy loss"); axes[0].set_xlabel("epoch"); axes[0].legend()
 axes[1].plot(epochs_axis, history["train_acc"], label="train"); axes[1].plot(epochs_axis, history["val_acc"], label="validation"); axes[1].set_title("accuracy"); axes[1].set_xlabel("epoch"); axes[1].legend()
-plt.tight_layout(); plt.show()
+plt.suptitle(RUN_NAME, fontsize=9); plt.tight_layout()
+fig.savefig(RUN_DIR / "curves.png", dpi=120)
+plt.show()
 
 # %% [markdown] id="s9"
 # ## 9. Evaluation on the test set
@@ -733,7 +781,9 @@ for i in range(NUM_CLASSES):
     for j in range(NUM_CLASSES):
         if cm[i, j]:
             ax.text(j, i, cm[i, j], ha="center", va="center", color="white" if cm[i, j] > cm.max() / 2 else "black", fontsize=8)
-plt.tight_layout(); plt.show()
+plt.tight_layout()
+fig.savefig(RUN_DIR / "confusion.png", dpi=120)
+plt.show()
 
 # a few individual predictions
 best_model.eval()
@@ -744,17 +794,52 @@ print("\nsample predictions (true -> predicted):")
 for i, p in zip(idx, pred):
     print(f"  test #{i:<4d} {CLASS_NAMES[y_test[i]]:<12s} -> {CLASS_NAMES[p]:<12s} {'ok' if p == y_test[i] else 'WRONG'}")
 
+# %% [markdown] id="s9b"
+# ### Save this run
+# Writes **`run_summary.json`** (configuration, seed, software/GPU versions, per-epoch history and timing, best epoch, test metrics, per-class accuracy, confusion matrix) next to `curves.png`, `confusion.png` and `best_model.pt` in this run's folder. A small zip **without** the model file is downloaded automatically on Colab. Put its contents in the repo's `results/` folder; that is your evidence for every number you quote.
+
+# %% id="save_run"
+import json, platform, shutil
+config = {"mode": TAG, "variant": VARIANT, "num_points": NUM_POINTS, "epochs": EPOCHS, "batch_size": BATCH_SIZE, "lr": LR,
+          "weight_decay": WEIGHT_DECAY, "dropout": DROPOUT, "feature_reg_weight": FEATURE_REG_WEIGHT, "seed": SEED,
+          "deterministic": DETERMINISTIC, "val_fraction": VAL_FRACTION, "use_input_tnet": USE_INPUT_TNET,
+          "use_feature_tnet": USE_FEATURE_TNET, "max_train_per_class": MAX_TRAIN_PER_CLASS, "max_test_per_class": MAX_TEST_PER_CLASS,
+          "optimizer": "Adam", "lr_schedule": "CosineAnnealingLR(T_max=epochs)", "augmentation": "z-rotation + jitter(0.01, clip 0.05)",
+          "model_kwargs": MODEL_KWARGS, "parameters": sum(p.numel() for p in best_model.parameters())}
+environment = {"python": platform.python_version(), "torch": torch.__version__, "cuda": torch.version.cuda,
+               "gpu": torch.cuda.get_device_name(0) if device.type == "cuda" else None, "device": str(device),
+               "numpy": np.__version__, "open3d": o3d.__version__ if HAVE_O3D else None,
+               "platform": platform.platform(), "finished_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}
+data_sizes = {"train": len(y_train), "val": len(y_val), "test": len(y_test), "cache_file": CACHE_PATH.name}
+summary = build_run_summary(config, environment, data_sizes, history, test, CLASS_NAMES, TRAIN_SECONDS)
+with open(RUN_DIR / "run_summary.json", "w") as f:
+    json.dump(summary, f, indent=2)
+
+bundle = RUN_DIR / "results_bundle"                     # small files only: no checkpoint
+bundle.mkdir(exist_ok=True)
+for name in ("run_summary.json", "curves.png", "confusion.png"):
+    shutil.copy(RUN_DIR / name, bundle / name)
+zip_path = shutil.make_archive(str(WORK_DIR / "runs" / RUN_NAME), "zip", bundle)
+print(f"saved: {sorted(p.name for p in RUN_DIR.iterdir())}\nzip for results/: {zip_path}")
+print(f"best epoch {summary['training']['best_epoch']} | val acc {summary['training']['best_val_acc']:.3f} | "
+      f"test acc {summary['test']['acc']:.3f} | mean class acc {summary['test']['mean_class_acc']:.3f} | {summary['note']}")
+try:
+    from google.colab import files                      # only exists on Colab
+    files.download(zip_path)
+except ImportError:
+    pass
+
 # %% [markdown] id="s10"
 # ## 10. Limits and what to try next
 # **Be careful with what you conclude**
 # * `QUICK_MODE` uses a subset and 5 epochs. Its accuracy only says "the code runs", not "PointNet works".
-# * One run with one seed is one data point. Differences of a percent or so between two runs can be noise. For a fair T-Net comparison, repeat each variant with 2-3 different `SEED` values.
+# * One run with one seed is one data point. Differences of a percent or so between two runs can be noise. For a fair T-Net comparison, repeat each variant with 2-3 different `SEED` values (each seed gets its own point-cloud cache, so the sampled points change too).
 # * Point sampling is random but fixed (cached) per mesh. Re-sampling each epoch would be an extra augmentation we did not implement.
 # * Because we normalize to a unit sphere, real-world size cues are discarded.
 #
 # **Suggested experiments, one change at a time**
 # 1. Baseline, `QUICK_MODE = False` (this notebook as is).
 # 2. `USE_INPUT_TNET = True` only. Then `USE_FEATURE_TNET = True` only. Then both. Compare *validation* accuracy and the time per epoch.
-# 3. More epochs (e.g. 60) or `NUM_POINTS = 2048` (delete the cache file first, since it is keyed by point count and mode).
+# 3. More epochs (e.g. 60) or `NUM_POINTS = 2048` (a new cache is built automatically: its name contains the point count, mode and seed).
 # 4. Look at the confusion matrix: which classes get mixed up (e.g. desk vs table, dresser vs night_stand)? Does that match your intuition?
 # 5. Class-weighted loss, because the classes are imbalanced.

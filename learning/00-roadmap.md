@@ -47,7 +47,7 @@ Where code lives: the notebook is built from `dev/notebook_source.py`. Each note
 | Claim | Status |
 |---|---|
 | Code runs end to end; shapes; smoke test (12/12); 12 unit tests | **Verified locally on CPU** with 70 real ModelNet10 meshes |
-| Accuracy on ModelNet10 | **Not measured yet.** It will come from your Colab GPU run (Step 4 of the plan) |
+| Accuracy on ModelNet10 | **Not measured yet.** It will come from your Colab GPU run |
 | Anything on Colab / GPU | **Not yet run** |
 
-Never quote an accuracy until it is in your own saved run results (`run_summary.json`, which the notebook will write once Step 3 of the plan is done).
+Never quote an accuracy until it is in your own `run_summary.json` (the notebook writes one per run, in section 9).

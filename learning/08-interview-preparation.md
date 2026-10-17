@@ -16,7 +16,7 @@ Practise these **out loud**. Short, precise answers beat long ones. If a follow-
 | 1024 points per object; 3,592 train / 399 val (stratified 10%) | config + `stratified_split` | ✅ now |
 | 811,914 parameters (baseline), 3,472,339 with both T-Nets; 81% of the baseline sits in the classifier head | counted from the model code | ✅ now |
 | 12 smoke checks (14 with T-Nets), 12 unit tests | local CPU runs | ✅ now |
-| accuracy, per-class accuracy, confusion pairs, epoch time on T4, T-Net effect | **your Colab run** (`run_summary.json`) | ⏳ after Step 4 |
+| accuracy, per-class accuracy, confusion pairs, epoch time on T4, T-Net effect | **your Colab run** (`run_summary.json`) | ⏳ after your Colab run |
 
 **Never say** a number from the second group until it's in your saved results. Don't quote the paper's ModelNet40 accuracy as yours; it's a different dataset and training budget.
 
@@ -63,7 +63,7 @@ Practise these **out loud**. Short, precise answers beat long ones. If a follow-
 | "Robust to missing points?" | The output depends only on the points that win the max (the "critical set"), so many points can be removed. Test it by subsampling test clouds *(06)*. |
 | "What would you do with more time?" | Multi-seed runs; T-Net and point-count ablations; test-time robustness (noise, dropout, rotation); try PointNet++. |
 | "Why ModelNet10 and not ModelNet40?" | Smaller (473 MB vs about 2 GB), faster iteration; the same pipeline extends to 40 classes. |
-| "How reproducible is it?" | Fixed seeds, cached sampling, saved config + metrics per run; GPU kernels may still differ slightly between runs. *(Step 3 adds the saved config + metrics.)* |
+| "How reproducible is it?" | Fixed seeds, cached sampling, saved config + metrics per run; GPU kernels may still differ slightly between runs. Every run writes a `run_summary.json` with config, versions and metrics. |
 
 ## 5. Limitations to state before they're pointed out
 - One seed per variant (until you run more): small differences are not conclusive.
