@@ -53,7 +53,7 @@ Why save `model_kwargs`? A checkpoint is useless if you don't know which archite
 | 4 | both T-Nets | both `True` | validation acc, time/epoch |
 | 5 | point count | `NUM_POINTS` 512 / 2048 (new cache) | validation acc, time/epoch |
 
-Record every run (config + numbers) **as measured**. A table where every number came from a saved file is exactly what makes this resume-worthy.
+Step-by-step Colab instructions with expected outputs: [`COLAB_CHECKLIST.md`](../COLAB_CHECKLIST.md). Record every run (config + numbers) **as measured**. A table where every number came from a saved file is exactly what makes this resume-worthy.
 
 ## 6. "What-if" menu: your own experiment ideas
 

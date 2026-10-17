@@ -8,6 +8,8 @@ A beginner-friendly, self-contained PyTorch implementation of **PointNet** (Qi e
 
 ## Quick start (Colab)
 
+Step-by-step with expected outputs and stop conditions: **[COLAB_CHECKLIST.md](COLAB_CHECKLIST.md)**. Short version:
+
 1. Go to <https://colab.research.google.com> → **File → Upload notebook** → pick `PointNet_ModelNet10.ipynb`.
 2. **Runtime → Change runtime type → T4 GPU.** The free tier is enough; **nothing here needs a paid plan or paid compute units.** If Colab offers an upgrade, ignore it.
 3. Leave `QUICK_MODE = True` (section 1) and **Runtime → Run all.** This downloads the dataset once (473 MB), uses a subset (about 1,000 train + 300 test meshes) and trains 5 epochs. It proves every stage works. *Its accuracy is not meaningful.*
@@ -150,6 +152,7 @@ Rough local timings (my CPU; your Colab numbers will differ): point-cloud prepro
 pointnet-modelnet10/
 ├── PointNet_ModelNet10.ipynb   # the project: upload this to Colab
 ├── README.md
+├── COLAB_CHECKLIST.md          # what to run on Colab, what you should see, when to stop
 ├── requirements-dev.txt        # only for the local tests (Colab needs nothing extra)
 ├── learning/                   # 9 study notes: architecture, syntax, training, T-Nets, evaluation, interview prep
 ├── results/                    # committed run summaries + figures from REAL runs only
