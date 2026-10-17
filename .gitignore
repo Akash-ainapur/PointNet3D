@@ -1,0 +1,17 @@
+# Data, caches and outputs the notebook creates when run locally (never commit these)
+pointnet_modelnet10/
+*.zip
+*.npz
+*.pt
+*.pth
+
+# Python / Jupyter
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# OS junk
+.DS_Store
+Thumbs.db
