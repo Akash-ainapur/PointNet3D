@@ -42,6 +42,7 @@ area = np.array([0.5, 1.5])
 idx = np.random.default_rng(0).choice(2, size=40000, p=area / area.sum())
 print((idx == 1).mean())   # predict first!
 ```
+<!-- expect: 0.753 -->
 <details><summary>Answer</summary>About 0.75 (= 1.5 / 2.0). Unit test <code>sampling_is_area_weighted_and_on_the_surface</code> checks exactly this on the real function. A deliberately broken version (uniform choice) gives about 0.50 and is caught.</details>
 
 ## 4. Normalization (`pc_funcs → normalize_point_cloud`)

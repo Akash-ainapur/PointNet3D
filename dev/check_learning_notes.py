@@ -2,7 +2,8 @@
 
 1. Every `cell → name` reference: the cell id exists and defines/uses that name.
 2. Every other backticked code-like name (snake_case, CamelCase, dotted) exists in the notebook source or the tests.
-3. Every ```python block runs without error (its output is printed so you can compare it with the note's answer).
+3. Every ```python block runs, and its printed output (lines joined with " | ") equals the
+   `<!-- expect: ... -->` line that follows it. Quoted code that should not run uses ```py instead.
 
 Usage (from the project root):  python dev/check_learning_notes.py [learning/03-*.md ...]
 Needs: torch, numpy, nbformat
@@ -17,6 +18,7 @@ SOURCE = (ROOT / "dev" / "notebook_source.py").read_text(encoding="utf-8")
 TESTS = (ROOT / "dev" / "test_units.py").read_text(encoding="utf-8")
 cells = {c.id: c.source for c in nbformat.read(ROOT / "PointNet_ModelNet10.ipynb", as_version=4).cells}
 
+SNIPPET = re.compile(r"```python\n(.*?)```\n(?:<!-- expect: (.*?) -->)?", re.S)   # runnable snippet + its expected output
 REF = re.compile(r"`([a-z_]+) → ([\w.]+)`")              # `model → PointNet.forward`
 TICK = re.compile(r"`([^`\n]+)`")
 NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
@@ -47,17 +49,21 @@ def main(paths):
             last = tok.split(".")[-1]
             if last not in SOURCE and last not in TESTS:
                 print(f"  UNKNOWN  `{tok}` is not in notebook_source.py or test_units.py"); problems += 1
-        for i, block in enumerate(re.findall(r"```python\n(.*?)```", text, flags=re.S), 1):
-            if "..." in block.replace("...)", ""):
-                print(f"  snippet {i}: skipped (contains '...')"); continue
+        for i, (block, expect) in enumerate(SNIPPET.findall(text), 1):
             buf = io.StringIO()
             try:
                 with contextlib.redirect_stdout(buf):
                     exec(compile(block, f"{path}#snippet{i}", "exec"), {"__name__": "__snippet__"})
-                print(f"  snippet {i}: OK -> " + " | ".join(buf.getvalue().strip().splitlines()))
             except Exception:
                 problems += 1
-                print(f"  snippet {i}: ERROR\n" + traceback.format_exc())
+                print(f"  snippet {i}: ERROR\n" + traceback.format_exc()); continue
+            got = " | ".join(buf.getvalue().strip().splitlines())
+            if not expect:
+                problems += 1; print(f"  snippet {i}: NO EXPECT LINE (got: {got})")
+            elif got != expect.strip():
+                problems += 1; print(f"  snippet {i}: WRONG ANSWER\n    note says: {expect.strip()}\n    real output: {got}")
+            else:
+                print(f"  snippet {i}: OK -> {got}")
     print(f"\n{'ALL CHECKS PASSED' if not problems else f'{problems} PROBLEM(S)'}")
     return problems
 

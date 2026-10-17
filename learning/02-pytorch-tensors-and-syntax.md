@@ -23,6 +23,7 @@ x = torch.randn(32, 1024, 3)          # (B, N, 3)
 print(x.transpose(1, 2).shape)        # swaps dims 1 and 2      → ?
 print(x.permute(0, 2, 1).shape)       # lists the new order      → ?
 ```
+<!-- expect: torch.Size([32, 3, 1024]) | torch.Size([32, 3, 1024]) -->
 <details><summary>Answer</summary>Both give <code>torch.Size([32, 3, 1024])</code>. <code>transpose</code> swaps exactly two dims; <code>permute</code> reorders all dims at once. Same result here.</details>
 
 **Why the project does it** (`model → PointNet.forward`, `x = points.transpose(1, 2)`): `Conv1d` expects **channels first**: `(batch, channels, length)`. Our "channels" are xyz (3) and our "length" is the points (N).
@@ -41,6 +42,7 @@ m = Tiny()
 print(m(torch.randn(5, 3)).shape)          # calling m(x) runs forward(x)  → ?
 print(sum(p.numel() for p in m.parameters()))   # → ?
 ```
+<!-- expect: torch.Size([5, 64]) | 256 -->
 <details><summary>Answer</summary><code>torch.Size([5, 64])</code> and <code>256</code> (= 3·64 weights + 64 biases). The notebook prints the same kind of count for PointNet (<code>shape_trace</code> cell): 811,914 for the baseline.</details>
 
 - **`nn.Linear(in, out)`:** `y = x·Wᵀ + b`. It works on the **last** dim: `(…, in) → (…, out)`.
@@ -61,6 +63,7 @@ a = conv(x.transpose(1, 2))                       # (B, 64, N)
 b = lin(x).transpose(1, 2)                        # (B, N, 64) → (B, 64, N)
 print(a.shape, torch.allclose(a, b, atol=1e-6))   # → ?
 ```
+<!-- expect: torch.Size([2, 64, 1024]) True -->
 <details><summary>Answer</summary><code>torch.Size([2, 64, 1024]) True</code>. A 1-wide convolution looks at one point at a time with shared weights. That is exactly what the paper calls a <b>shared MLP</b>.</details>
 
 ## 5. Reductions: `max(dim=…)` returns two things
@@ -71,6 +74,7 @@ f = torch.randn(32, 1024, 1024)           # (B, channels, N) after the shared ML
 out = f.max(dim=2)                        # reduce over the points
 print(out.values.shape, out.indices.shape)  # → ?
 ```
+<!-- expect: torch.Size([32, 1024]) torch.Size([32, 1024]) -->
 <details><summary>Answer</summary>Both <code>torch.Size([32, 1024])</code>. <code>.values</code> are the maxima (used: <code>model → PointNet.forward</code>, <code>x = x.max(dim=2).values</code>); <code>.indices</code> say <i>which point</i> won each channel (the paper calls these points the "critical set"; a nice what-if experiment).</details>
 
 ## 6. Batched matrix multiply: `torch.bmm`

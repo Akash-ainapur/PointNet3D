@@ -41,6 +41,7 @@ print(torch.allclose(a, b))                                     # → ?
 flat = nn.Linear(300, 16)                                       # the "naive" approach
 print(torch.allclose(flat(x.flatten(1)), flat(x[:, :, perm].flatten(1))))   # → ?
 ```
+<!-- expect: True | False -->
 <details><summary>Answer</summary><code>True</code>, then <code>False</code>. Shared MLP + max is order-proof; flattening is not. The project tests this on the real model: <code>smoke_funcs → run_smoke_test</code>, check "permutation invariance (shuffled points → same logits)", measured max difference 0.00e+00 locally.</details>
 
 ## 4. Where the parameters are (measured from the code)
