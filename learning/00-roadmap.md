@@ -27,11 +27,11 @@ Where code lives: the notebook is built from `dev/notebook_source.py`. Each note
 | 01 | [Point clouds & dataset](01-point-clouds-and-dataset.md) | mesh vs point cloud, OFF files, area-weighted sampling, unit-sphere normalization, the ModelNet10 split |
 | 02 | [PyTorch tensors & syntax](02-pytorch-tensors-and-syntax.md) | shapes, `dim`, `nn.Module`/`forward`, `Linear` vs `Conv1d(k=1)`, `transpose`/`permute`, `bmm` |
 | 03 | [PointNet architecture](03-pointnet-architecture.md) | shared MLP, global max pool, head, permutation invariance, parameter budget |
-| 04 | Training & backprop *(batch 2)* | logits → cross-entropy → gradients → Adam; epochs, batches, LR, validation |
-| 05 | T-Nets & regularization *(batch 2)* | 3×3 / 64×64 transforms, identity init, orthogonality penalty |
-| 06 | Evaluation & experiments *(batch 2)* | accuracy vs mean class accuracy, confusion matrix, checkpoints, controlled experiments, "what-if" menu |
-| 07 | Code walkthrough *(batch 3)* | every notebook section → function → shapes |
-| 08 | Interview preparation *(batch 3)* | likely questions, accurate answers, limitations, honest framing |
+| 04 | [Training & backprop](04-training-and-backpropagation.md) | logits → cross-entropy → gradients → Adam; epochs, batches, LR, validation |
+| 05 | [T-Nets & regularization](05-tnets-and-regularization.md) | 3×3 / 64×64 transforms, identity init, orthogonality penalty |
+| 06 | [Evaluation & experiments](06-evaluation-and-experiments.md) | accuracy vs mean class accuracy, confusion matrix, checkpoints, controlled experiments, "what-if" menu |
+| 07 | [Code walkthrough](07-code-walkthrough.md) | every notebook section → function → shapes |
+| 08 | [Interview preparation](08-interview-preparation.md) | likely questions, accurate answers, limitations, honest framing |
 
 ## The 6 ideas everything hangs on
 

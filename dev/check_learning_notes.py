@@ -49,6 +49,13 @@ def main(paths):
             last = tok.split(".")[-1]
             if last not in SOURCE and last not in TESTS:
                 print(f"  UNKNOWN  `{tok}` is not in notebook_source.py or test_units.py"); problems += 1
+        if Path(path).name.startswith("07-"):          # the "one line to point at" column must quote real code
+            for row in (l for l in text.splitlines() if l.startswith("| ") and "→" in l):
+                cols = [c.strip() for c in row.split("|")]
+                for q in re.findall(r"`([^`]+)`", cols[4] if len(cols) > 4 else ""):
+                    missing = [p.strip() for p in re.split(r"\.\.\.|→", q) if len(p.strip()) > 3 and p.strip() not in SOURCE]
+                    if missing:
+                        print(f"  BAD QUOTE `{q}` is not in notebook_source.py"); problems += 1
         for i, (block, expect) in enumerate(SNIPPET.findall(text), 1):
             buf = io.StringIO()
             try:
@@ -57,7 +64,8 @@ def main(paths):
             except Exception:
                 problems += 1
                 print(f"  snippet {i}: ERROR\n" + traceback.format_exc()); continue
-            got = " | ".join(buf.getvalue().strip().splitlines())
+            got = " | ".join(" ".join(ln.split()) for ln in buf.getvalue().strip().splitlines())   # whitespace-normalized
+            expect = " ".join(expect.split()) if expect else expect
             if not expect:
                 problems += 1; print(f"  snippet {i}: NO EXPECT LINE (got: {got})")
             elif got != expect.strip():
