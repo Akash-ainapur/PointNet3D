@@ -18,6 +18,7 @@ SOURCE = (ROOT / "dev" / "notebook_source.py").read_text(encoding="utf-8")
 TESTS = (ROOT / "dev" / "test_units.py").read_text(encoding="utf-8")
 cells = {c.id: c.source for c in nbformat.read(ROOT / "PointNet_ModelNet10.ipynb", as_version=4).cells}
 
+EXTERNAL_FILES = {"train.py", "pointnet_cls.py", "transform_nets.py", "provider.py"}   # charlesq34/pointnet
 SNIPPET = re.compile(r"```python\n(.*?)```\n(?:<!-- expect: (.*?) -->)?", re.S)   # runnable snippet + its expected output
 REF = re.compile(r"`([a-z_]+) → ([\w.]+)`")              # `model → PointNet.forward`
 TICK = re.compile(r"`([^`\n]+)`")
@@ -43,6 +44,14 @@ def main(paths):
                 print(f"  BAD REF  '{name}' not found in cell '{cell}'"); problems += 1
         for tok in set(TICK.findall(text)):
             tok = tok.strip()
+            if tok in EXTERNAL_FILES:                      # files in the authors' repo, cited on purpose
+                continue
+            if re.search(r"\.(md|py)$", tok):              # a repo file: it must exist
+                if not any(p.name == Path(tok).name for p in ROOT.rglob(Path(tok).name)):
+                    print(f"  MISSING FILE `{tok}`"); problems += 1
+                continue
+            if re.search(r"\.(json|png|zip|pt|npz|ipynb|txt)$", tok):   # generated artifacts / data files: not code names
+                continue
             if not looks_like_code(tok) or tok in IGNORE or tok.startswith(("torch.", "nn.", "np.", "o3d.", "F.")):
                 continue
             last = tok.split(".")[-1]
