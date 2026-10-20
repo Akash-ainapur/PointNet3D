@@ -24,7 +24,8 @@ REF = re.compile(r"`([a-z_]+) → ([\w.]+)`")              # `model → PointNet
 TICK = re.compile(r"`([^`\n]+)`")
 NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")
 IGNORE = {"keepdims", "drop_last", "num_classes", "kernel_size", "requires_grad", "weight_decay",
-          "set_to_none", "zero_grad", "state_dict", "load_state_dict", "no_grad", "draw_plotly", "draw_geometries"}
+          "set_to_none", "zero_grad", "state_dict", "load_state_dict", "no_grad", "draw_plotly", "draw_geometries",
+          "MyPointNet", "my_sample", "my_train_one_epoch"}   # names the learner writes in note 09's drill
 
 
 def looks_like_code(tok):

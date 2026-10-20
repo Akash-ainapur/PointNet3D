@@ -19,6 +19,7 @@ Where code lives: the notebook is built from `dev/notebook_source.py`. Each note
 | 2 | [02 PyTorch tensors & syntax](02-pytorch-tensors-and-syntax.md) | Read the model code without getting lost in shapes |
 | 3 | [07 Code walkthrough](07-code-walkthrough.md) | Map every concept to a function you can point at |
 | 4 | [08 Interview preparation](08-interview-preparation.md) | Rehearse answers, limitations, follow-ups |
+| 5 | [09 Own these 3 functions](09-own-these-3-functions.md) | Rebuild the model, training loop and sampling yourself, so you can truthfully say you implemented them |
 
 ## Full path (about 2–2.5 hours, spread over a few days)
 
@@ -32,6 +33,7 @@ Where code lives: the notebook is built from `dev/notebook_source.py`. Each note
 | 06 | [Evaluation & experiments](06-evaluation-and-experiments.md) | accuracy vs mean class accuracy, confusion matrix, checkpoints, controlled experiments, "what-if" menu |
 | 07 | [Code walkthrough](07-code-walkthrough.md) | every notebook section → function → shapes |
 | 08 | [Interview preparation](08-interview-preparation.md) | likely questions, accurate answers, limitations, honest framing |
+| 09 | [Own these 3 functions](09-own-these-3-functions.md) | `PointNet`, `train_one_epoch`, `sample_points_from_mesh` line by line, with measured effects and a rebuild drill |
 
 ## The 6 ideas everything hangs on
 
@@ -46,7 +48,7 @@ Where code lives: the notebook is built from `dev/notebook_source.py`. Each note
 
 | Claim | Status |
 |---|---|
-| Code runs end to end; shapes; smoke test (12/12); 12 unit tests | **Verified locally on CPU** with 70 real ModelNet10 meshes |
+| Code runs end to end; shapes; smoke test (12/12); 13 unit tests | **Verified locally on CPU** with 70 real ModelNet10 meshes |
 | Accuracy on ModelNet10 | **Not measured yet.** It will come from your Colab GPU run |
 | Anything on Colab / GPU | **Not yet run** |
 
